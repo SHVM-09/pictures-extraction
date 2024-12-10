@@ -1,8 +1,8 @@
-Here’s a detailed, **line-by-line explanation** of the code:
+Here’s a detailed line-by-line explanation of the code:
 
 ---
 
-### **Imports**
+### **Imports and Setup**
 ```python
 import cv2
 import pytesseract
@@ -10,197 +10,168 @@ import os
 import imagehash
 from PIL import Image
 import numpy as np
+import subprocess
+import whisper
+import warnings
+import itertools
+import threading
+import time
 ```
-1. `cv2`: OpenCV library for computer vision tasks, used here for video frame extraction and image manipulation.
-2. `pytesseract`: Python wrapper for the Tesseract OCR tool, used to detect text in frames.
-3. `os`: Python's library for file system operations (e.g., creating directories, joining paths).
-4. `imagehash`: Library for calculating perceptual hashes, used to identify visually similar images.
-5. `PIL.Image`: PIL (Python Imaging Library) module for handling image processing tasks.
-6. `numpy`: Python library for working with arrays, used here to represent images as arrays.
+
+1. **`cv2`**: OpenCV is used for handling video and image processing tasks.
+2. **`pytesseract`**: Python wrapper for the Tesseract OCR engine, used for text extraction from images.
+3. **`os`**: Provides functions to interact with the operating system (e.g., creating directories).
+4. **`imagehash`**: Library for perceptual image hashing, used to compare image similarity.
+5. **`PIL.Image`**: Part of the Python Imaging Library (Pillow), used for image manipulation.
+6. **`numpy`**: Library for numerical operations, used here for efficient image data handling.
+7. **`subprocess`**: Allows running external processes (e.g., `ffmpeg`) from the Python script.
+8. **`whisper`**: OpenAI’s Whisper library, used for automatic speech recognition.
+9. **`warnings`**: Suppresses warnings during runtime.
+10. **`itertools`**: Provides iterators for efficient looping, used here for creating a spinner.
+11. **`threading`**: Provides thread-based parallelism, used to display a spinner while other tasks run.
+12. **`time`**: Provides time-related functions like delays (`sleep`).
 
 ---
 
-### **Print Tesseract Version**
+### **Warning Suppression**
 ```python
-print(pytesseract.get_tesseract_version())
+warnings.filterwarnings("ignore")
 ```
-This prints the version of Tesseract OCR installed on your system, ensuring it's properly set up.
+This suppresses runtime warnings (e.g., deprecation or library warnings) to keep the console output clean.
+
+---
+
+### **Styling Functions**
+These functions add styled text (colored and formatted) to the console for better user experience.
+
+#### **`print_success`**
+```python
+def print_success(message):
+    print(f"\033[92m✔ {message}\033[0m")
+```
+- Prints messages in **green** with a checkmark icon (`✔`) for success messages.
+- `\033[92m`: ANSI escape code for green text.
+- `\033[0m`: Resets the color to default.
+
+#### **`print_info`**
+```python
+def print_info(message):
+    print(f"\033[94mℹ {message}\033[0m")
+```
+- Prints messages in **blue** with an info icon (`ℹ`) for informational messages.
+
+#### **`print_warning`**
+```python
+def print_warning(message):
+    print(f"\033[93m⚠ {message}\033[0m")
+```
+- Prints messages in **yellow** with a warning icon (`⚠`) for cautionary messages.
+
+#### **`print_error`**
+```python
+def print_error(message):
+    print(f"\033[91m✖ {message}\033[0m")
+```
+- Prints messages in **red** with a cross icon (`✖`) for error messages.
+
+#### **`print_heading`**
+```python
+def print_heading(message):
+    print(f"\033[1;95m{message}\033[0m")
+```
+- Prints **bold magenta** text for headings or major sections.
+
+---
+
+### **Spinner Functionality**
+#### **`spinner_task`**
+```python
+def spinner_task(message, spinner_event):
+    spinner = itertools.cycle(["|", "/", "-", "\\"])
+    while not spinner_event.is_set():
+        print(f"\r{message} {next(spinner)}", end="", flush=True)
+        time.sleep(0.1)
+    print("\r" + " " * (len(message) + 2), end="", flush=True)
+```
+- Displays a spinner animation during long-running tasks.
+- **`itertools.cycle`**: Cycles through characters (`|`, `/`, `-`, `\`) for the spinner.
+- **`spinner_event`**: A threading event that determines when to stop the spinner.
+- **`time.sleep(0.1)`**: Adds a delay to slow the spinner's rotation.
+- **`\r`**: Resets the cursor to the start of the line, overwriting the spinner in place.
 
 ---
 
 ### **Perceptual Hash Calculation**
+#### **`calculate_perceptual_hash`**
 ```python
 def calculate_perceptual_hash(image):
-    """
-    Calculate a perceptual hash for the given image.
-    """
-    pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))  # Convert OpenCV image to PIL format
-    return str(imagehash.phash(pil_image))  # Compute the perceptual hash
+    pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    return str(imagehash.phash(pil_image))
 ```
-1. **Input**: `image` is a frame from the video represented as a NumPy array.
-2. **`cv2.cvtColor(image, cv2.COLOR_BGR2RGB)`**: Converts the image from OpenCV's BGR format to RGB.
-3. **`Image.fromarray(...)`**: Converts the NumPy array to a PIL image.
-4. **`imagehash.phash(...)`**: Calculates a perceptual hash using the `phash` method, which is robust to small visual changes like noise.
-5. **Output**: Returns a string representation of the hash.
+- Converts a video frame (from OpenCV) to a PIL image and calculates its perceptual hash.
+- **`phash`**: Generates a hash representing the image's content, used to detect similarity.
 
 ---
 
 ### **Image Similarity Check**
+#### **`are_images_similar`**
 ```python
 def are_images_similar(image1, image2, threshold=5):
-    """
-    Check if two images are similar based on perceptual hash distance.
-    """
-    hash1 = calculate_perceptual_hash(image1)  # Compute hash for the first image
-    hash2 = calculate_perceptual_hash(image2)  # Compute hash for the second image
-    return imagehash.hex_to_hash(hash1) - imagehash.hex_to_hash(hash2) <= threshold  # Compare hash distances
+    hash1 = calculate_perceptual_hash(image1)
+    hash2 = calculate_perceptual_hash(image2)
+    return imagehash.hex_to_hash(hash1) - imagehash.hex_to_hash(hash2) <= threshold
 ```
-1. **Input**: Two images (`image1`, `image2`) and a similarity threshold.
-2. **`calculate_perceptual_hash(...)`**: Calculates perceptual hashes for both images.
-3. **`imagehash.hex_to_hash(...)`**: Converts hash strings back to hash objects for comparison.
-4. **Hamming Distance**: Measures the difference between the two hashes.
-   - If the distance is less than or equal to `threshold`, the images are considered similar.
-5. **Output**: Returns `True` if the images are similar, `False` otherwise.
+- Compares two image hashes. If their difference is within the `threshold`, they are considered similar.
 
 ---
 
-### **Extract Informative Frames**
+### **Frame Extraction**
+#### **`extract_informative_frames`**
 ```python
 def extract_informative_frames(video_path, output_folder, frame_interval=30):
-    """
-    Extract frames with information from a video and save them as distinct images.
-    """
 ```
-1. **Input Parameters**:
-   - `video_path`: Path to the input video file.
-   - `output_folder`: Directory to save the extracted frames.
-   - `frame_interval`: Process every `frame_interval`-th frame (to reduce redundancy).
+- Processes a video to extract frames with text content.
+
+Key Points:
+1. **`os.makedirs(output_folder, exist_ok=True)`**: Creates the output folder if it doesn’t exist.
+2. **`cv2.VideoCapture(video_path)`**: Opens the video file for processing.
+3. **`frame_count % frame_interval == 0`**: Processes every `frame_interval`-th frame.
+4. **`pytesseract.image_to_string(gray)`**: Extracts text from the frame (converted to grayscale).
+5. **`are_images_similar`**: Skips saving frames similar to previously saved ones.
 
 ---
 
-#### **Create Output Directory**
+### **Audio Extraction and Transcription**
+#### **`extract_audio_to_text`**
 ```python
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+def extract_audio_to_text(video_path, output_folder):
 ```
-1. Checks if the `output_folder` exists.
-2. If not, it creates the folder using `os.makedirs`.
+- Extracts audio from the video and transcribes it into text using Whisper.
+
+Key Points:
+1. **`subprocess.run`**: Runs the `ffmpeg` command to extract audio into `audio.wav`.
+2. **`whisper.load_model("base")`**: Loads the Whisper speech-to-text model.
+3. **`model.transcribe(audio_file)`**: Transcribes the audio to text.
+4. **`with open(transcript_file, "w")`**: Saves the transcription to a text file.
 
 ---
 
-#### **Open the Video**
-```python
-    cap = cv2.VideoCapture(video_path)
-    frame_count = 0
-    saved_frames = []
-    final_frames = []
-```
-1. **`cv2.VideoCapture(video_path)`**: Opens the video file for processing.
-2. **`frame_count`**: Tracks the current frame number.
-3. **`saved_frames`**: Stores paths of saved frames.
-4. **`final_frames`**: Stores actual frame data for comparison.
-
----
-
-#### **Handle Errors**
-```python
-    if not cap.isOpened():
-        print(f"Error: Unable to open video file: {video_path}")
-        return []
-```
-1. Checks if the video file was successfully opened.
-2. If not, prints an error message and exits the function.
-
----
-
-#### **Process Video Frames**
-```python
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-```
-1. **`cap.read()`**: Reads the next frame from the video.
-   - `ret`: Boolean indicating success.
-   - `frame`: The actual image frame.
-2. **Exit Condition**: Stops when there are no more frames (`ret` is `False`).
-
----
-
-#### **Process Every `frame_interval`-th Frame**
-```python
-        if frame_count % frame_interval == 0:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            text = pytesseract.image_to_string(gray)
-```
-1. Skips frames to process only every `frame_interval`-th frame.
-2. **`cv2.cvtColor(...)`**: Converts the frame to grayscale.
-3. **`pytesseract.image_to_string(...)`**: Uses OCR to extract text from the grayscale image.
-
----
-
-#### **Filter Frames with Text**
-```python
-            if text.strip():
-                is_duplicate = any(are_images_similar(frame, saved_frame) for saved_frame in final_frames)
-                if not is_duplicate:
-                    frame_file = os.path.join(output_folder, f"frame_{frame_count}.jpg")
-                    cv2.imwrite(frame_file, frame)
-                    saved_frames.append(frame_file)
-                    final_frames.append(frame)
-```
-1. Checks if the extracted text (`text.strip()`) is non-empty.
-2. **Duplicate Check**:
-   - Compares the current frame with all previously finalized frames using `are_images_similar`.
-3. **Save Frame**:
-   - If not a duplicate, saves the frame to the `output_folder`.
-   - Updates `saved_frames` and `final_frames`.
-
----
-
-#### **Increment Frame Counter**
-```python
-        frame_count += 1
-```
-Increments the frame counter to keep track of the current frame number.
-
----
-
-#### **Release Resources**
-```python
-    cap.release()
-    print(f"Frames saved to: {output_folder}")
-    return saved_frames
-```
-1. **`cap.release()`**: Closes the video file.
-2. Prints the location of saved frames.
-3. Returns the list of saved frame paths.
-
----
-
-### **Main Program**
+### **Main Script**
+#### **`__main__`**
 ```python
 if __name__ == "__main__":
-    video_path = "videos/sample.mp4"
-    output_folder = "output_frames"
-    frame_interval = 30
-
-    extracted_frames = extract_informative_frames(video_path, output_folder, frame_interval)
-    print(f"Extracted frames: {extracted_frames}")
 ```
-1. Sets up the input video path and output folder.
-2. Calls `extract_informative_frames` with the provided arguments.
-3. Prints the list of saved frame paths after processing.
+- Defines the script's entry point.
+
+1. **`spinner_event`**: Used to start/stop the spinner thread during long tasks.
+2. **`spinner_thread`**: Spinner runs in a separate thread while frame/audio processing occurs.
+3. **`spinner_event.set()`**: Stops the spinner after the task is complete.
+4. **`print_info` and `print_success`**: Provide user-friendly updates about progress.
 
 ---
 
 ### **Summary**
-- **Core Functionality**:
-  - Extracts frames containing text from a video.
-  - Ensures only unique, distinct frames are saved.
-- **Key Features**:
-  - Skips redundant frames (`frame_interval`).
-  - Detects text in frames (`pytesseract`).
-  - Filters duplicates using perceptual hashing (`imagehash`).
-
-Let me know if you'd like further clarification or improvements!
+This script performs three main tasks:
+1. **Extracts and saves informative frames** from a video, avoiding duplicates.
+2. **Extracts audio** from the video and generates a **transcription** using Whisper.
+3. Provides **styled console output** and a **spinner animation** for a polished user experience.
