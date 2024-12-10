@@ -1,0 +1,27 @@
+# Ignore virtual environment folders
+.venv/
+myenv/
+
+# Ignore output frames and processed data
+output_frames/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore environment and editor-specific files
+.env
+*.env
+*.DS_Store
+*.log
+
+# Ignore IDE settings
+.vscode/
+.idea/
+
+# Ignore compiled files
+*.so
+*.dll
+*.dylib
+*.pyd
