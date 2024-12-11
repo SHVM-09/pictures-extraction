@@ -4,6 +4,18 @@ myenv/
 
 # Ignore output frames and processed data
 output_frames/
+output_frames_mse/
+output_frames_orb/
+output_frames_hist/
+output_frames_ssim/
+output_frames_ahash/
+output_frames_phash/
+output_frames_whash/
+output_frames_dhash/
+output_frames_crophash/
+output_frames_colorhash/
+output_frames2/
+output_frames3/
 
 # Ignore Python cache files
 __pycache__/
