@@ -51,13 +51,13 @@ def calculate_perceptual_hash(image):
     pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))  # Convert OpenCV image to PIL Image (RGB format)
     return str(imagehash.phash(pil_image))  # Generate perceptual hash using imagehash and return as string
 
-def are_images_similar_phash(image1, image2, threshold=3):
+def are_images_similar_phash(image1, image2, threshold=6):
     hash1 = calculate_perceptual_hash(image1)
     hash2 = calculate_perceptual_hash(image2)
     return imagehash.hex_to_hash(hash1) - imagehash.hex_to_hash(hash2) <= threshold
 
 # Mean Squared Error (MSE)
-def are_images_similar_mse(image1, image2, threshold=1):
+def are_images_similar_mse(image1, image2, threshold=9):
     image1_gray = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
     image2_gray = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
     mse_value = np.sum((image1_gray - image2_gray) ** 2) / float(image1_gray.shape[0] * image1_gray.shape[1])
@@ -110,41 +110,64 @@ def extract_informative_frames(video_path, output_folder, frame_interval=30):
 def extract_audio_to_text(video_path, output_folder):
     """
     Extracts the audio from a video and transcribes it into text using the Whisper model.
-    Deletes the audio file after transcription.
+    If no audio is present, it creates an empty transcript file.
     """
     print_heading("Extracting and Transcribing Audio")  # Display a heading message for audio extraction and transcription
     audio_file = os.path.join(output_folder, "audio.wav")  # Specify the path for the audio file to be saved
-    
-    # Extract the audio from the video using ffmpeg
-    subprocess.run([
-        "ffmpeg", "-i", video_path, "-q:a", "0", "-map", "a", audio_file, "-y"
-    ], check=True)  # Run ffmpeg to extract audio as a .wav file
 
-    print_success(f"Audio extracted to: {audio_file}")  # Inform the user that audio extraction is complete
+    # Check if the video has an audio stream
+    probe = subprocess.run(
+        ["ffmpeg", "-i", video_path],
+        stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+    )
+    if "Audio:" not in probe.stderr:
+        print_warning(f"No audio stream found in video: {video_path}")
+        
+        # Create an empty transcript file
+        transcript_file = os.path.join(output_folder, "transcript.txt")
+        with open(transcript_file, "w") as f:
+            f.write("")  # Write an empty transcript file
+        
+        print_success(f"Empty transcript saved to: {transcript_file}")
+        return ""  # Return an empty string for the transcript
+
+    # Extract the audio from the video using ffmpeg
+    try:
+        subprocess.run([
+            "ffmpeg", "-i", video_path, "-q:a", "0", "-map", "a", audio_file, "-y"
+        ], check=True)  # Run ffmpeg to extract audio as a .wav file
+        print_success(f"Audio extracted to: {audio_file}")  # Inform the user that audio extraction is complete
+    except subprocess.CalledProcessError as e:
+        print_error(f"Failed to extract audio: {e}")
+        return None
 
     # Use Whisper (pre-trained speech-to-text model) to transcribe the audio file
-    model = whisper.load_model("base")  # Load the Whisper model (base model is lightweight)
-    result = model.transcribe(audio_file)  # Transcribe the audio to text
-    transcript = result["text"]  # Extract the text from the transcription result
+    try:
+        model = whisper.load_model("base")  # Load the Whisper model (base model is lightweight)
+        result = model.transcribe(audio_file)  # Transcribe the audio to text
+        transcript = result["text"]  # Extract the text from the transcription result
 
-    # Save the transcript to a text file
-    transcript_file = os.path.join(output_folder, "transcript.txt")
-    with open(transcript_file, "w") as f:
-        f.write(transcript)  # Write the transcript text to the file
+        # Save the transcript to a text file
+        transcript_file = os.path.join(output_folder, "transcript.txt")
+        with open(transcript_file, "w") as f:
+            f.write(transcript)  # Write the transcript text to the file
 
-    print_success(f"Transcript saved to: {transcript_file}")  # Inform the user that the transcript has been saved
+        print_success(f"Transcript saved to: {transcript_file}")  # Inform the user that the transcript has been saved
 
-    # Delete the audio file after transcription to save space
-    os.remove(audio_file)  # Remove the audio file from the disk
-    print_success(f"Deleted audio file: {audio_file}")  # Inform the user that the audio file has been deleted
+        # Delete the audio file after transcription to save space
+        os.remove(audio_file)  # Remove the audio file from the disk
+        print_success(f"Deleted audio file: {audio_file}")  # Inform the user that the audio file has been deleted
 
-    return transcript  # Return the transcript text
+        return transcript  # Return the transcript text
+    except Exception as e:
+        print_error(f"Error during transcription: {e}")
+        return None
 
 # Main Script that runs the video processing and transcription tasks
 
 if __name__ == "__main__":
-    video_path = "videos/sample.mp4"  # Specify the path to the input video file
-    output_folder = "output_frames_mse"  # Specify the output folder to save frames and transcript
+    video_path = "videos/codingSample.mp4"  # Specify the path to the input video file
+    output_folder = "output_frames_coding"  # Specify the output folder to save frames and transcript
     frame_interval = 30  # Process every 30th frame from the video
 
     print_heading("Video Processing Started")  # Display a heading message indicating that the process has started

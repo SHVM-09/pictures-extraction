@@ -14,8 +14,16 @@ output_frames_whash/
 output_frames_dhash/
 output_frames_crophash/
 output_frames_colorhash/
+output_frames_coding/
 output_frames2/
 output_frames3/
+output_frames_flv/
+output_frames_meet/
+output_frames_mkv/
+output_frames_mov/
+output_frames_avi/
+output_frames_sample/
+output_frames_hybrid/
 
 # Ignore Python cache files
 __pycache__/
