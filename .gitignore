@@ -5,6 +5,7 @@ myenv/
 # Ignore output frames and processed data
 output_frames/
 output_frames_mse/
+output_frames_mse_new/
 output_frames_orb/
 output_frames_hist/
 output_frames_ssim/
@@ -45,3 +46,7 @@ __pycache__/
 *.dll
 *.dylib
 *.pyd
+
+videos/*.mov
+videos/movie.mp4
+videos/natgeo.mp4
