@@ -43,7 +43,6 @@ def measure_time(func):
         return result
     return wrapper
 
-# Split video into chunks of ~25MB
 @measure_time
 def split_video_into_chunks(video_path, output_folder):
     """Splits the video into 1-minute chunks using ffmpeg."""
@@ -104,7 +103,7 @@ def extract_informative_frames(video_chunks, output_folder, frame_interval, vide
     pool_args = [(chunk, output_folder, frame_interval, video_creation_time, idx)
                  for idx, chunk in enumerate(video_chunks)]
 
-    with Pool(processes=cpu_count()) as pool:
+    with Pool(processes=cpu_count(), maxtasksperchild=1) as pool:  # Ensure processes are cleaned up
         pool.map(extract_frames_from_chunk, pool_args)
 
 @measure_time
@@ -126,7 +125,7 @@ def extract_audio_to_text(video_path, output_folder, video_creation_time):
     args_list = [(chunk, int(video_creation_time + (idx * 60)), output_folder)
                  for idx, chunk in enumerate(audio_chunks)]
 
-    with Pool(min(cpu_count(), 4)) as pool:
+    with Pool(min(cpu_count(), 4), maxtasksperchild=1) as pool:  # Ensure process cleanup
         pool.map(transcribe_chunk_with_timestamp, args_list)
 
     for chunk in audio_chunks:
