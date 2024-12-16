@@ -3,6 +3,7 @@
 myenv/
 
 # Ignore output frames and processed data
+outputs/
 output_frames/
 output_frames_mse/
 output_frames_mse_new/
