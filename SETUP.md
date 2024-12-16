@@ -28,65 +28,45 @@ Follow the steps below to set up the environment, install the necessary packages
 Run the following command to install all the necessary dependencies:
 
 ```bash
-pip install opencv-python pytesseract pillow imagehash
+pip install opencv-python numpy openai-whisper
 ```
 
-This command installs:
-- `opencv-python`: For video processing and frame extraction.
-- `pytesseract`: For Optical Character Recognition (OCR) on frames.
-- `pillow`: For image processing (used with `imagehash`).
-- `imagehash`: For comparing image similarity.
+```bash
+brew install ffmpeg
+```
+
+`ffmpeg` is required for video and audio processing.
+
+If warnings/error in whisper use command  `pip install --upgrade openai-whisper`
 
 ---
 
-### **3. Install and Configure Tesseract OCR**
-1. **Install Tesseract**:
-   On macOS:
-   ```bash
-   brew install tesseract
-   ```
-
-2. **Verify Tesseract Installation**:
-   Check the version to confirm the installation:
-   ```bash
-   tesseract --version
-   ```
-
----
-
-### **4. Prepare the Video File**
+### **3. Prepare the Video File**
 1. Create a folder named `videos` in the same directory as the script.
 2. Place your video file (e.g., `sample.mp4`) in the `videos` folder.
 
 ---
 
-### **5. Run the Script**
+### **4. Run the Script**
 Execute the script using Python:
 ```bash
-python3 extract_frames.py
-```
-
----
-
-### **Commands to Automate Installation and Run**
-If you'd like to automate the setup, use the following commands:
-
-#### **One-Liner for Installation**
-```bash
-python3 -m venv myenv && source myenv/bin/activate && pip install opencv-python pytesseract pillow imagehash && brew install tesseract
-```
-
-#### **Run the Script**
-```bash
-python3 extract_frames.py
+python3 extract_frames_timestamp.py
 ```
 
 ---
 
 ### **Expected Output**
-1. Extracted frames with text will be saved in the `output_frames` folder.
-2. The console will display:
-   - The frames processed.
-   - The saved frames and their paths.
 
----
+1. **Extracted Frames**:
+   - Extracted frames are saved in the `outputs` folder.
+   - Each frame is named with its timestamp (e.g., `frames-<timestamp>.jpg`).
+
+2. **Transcripts**:
+   - Audio transcriptions are saved as `.txt` files in the `outputs` folder.
+   - Each file is named with its timestamp (e.g., `transcript-<timestamp>.txt`).
+
+3. **Terminal**:
+   - The script will display detailed logs, including:
+     - Frames processed.
+     - Audio transcription details.
+     - Total time taken.
